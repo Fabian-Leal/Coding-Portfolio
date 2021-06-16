@@ -1,0 +1,533 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tz %}
+{% load get_item %}
+{% block title %}{{ plan.name }}{% endblock %}
+
+{% block content %}
+    <h3 class="mb-3">{{ plan.name }}</h3>
+    <b>Estado:</b> {% with status=plan.get_status_bootstrap %}<span id="plan-status" class="badge badge-{{ status.1 }}">{{ status.0 }}</span>{% endwith %}<br>
+    <b>Rango de ejecucion:</b> {{ parameters.start_date }} - {{ parameters.end_date }}<br>
+    <b>Creado por:</b> {{ plan.created_by.name }}<br>
+    <b>Creado el:</b> {{ plan.created_at|timezone:'America/Santiago' }}<br>
+    <b>Finalizado el:</b> {% if plan.ended_at %}{{ plan.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}
+    <br>
+    <div id="plan-btns" class="btn-group mt-1">
+        {% if plan.demand_attach %}<a href="/media/{{ plan.demand_attach }}" class="btn btn-primary btn-sm" role="button" target="_blank">Descargar demanda</a>{% endif %}
+        {% if plan.parameters_attach %}<a href="/media/{{ plan.parameters_attach }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Descargar parametros</a>{% endif %}
+    </div>
+    <hr>
+    <ul class="nav nav-tabs" id="plan-tab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="tasks-tab" data-toggle="tab" href="#tasks" role="tab" aria-controls="tasks" aria-selected="true">Tiendas</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="parameters-tab" data-toggle="tab" href="#parameters" role="tab" aria-controls="parameters" aria-selected="false">Parametros</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="timerange-tab" data-toggle="tab" href="#timeranges" role="tab" aria-controls="timeranges" aria-selected="false">Horario</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="charts-tab" data-toggle="tab" href="#charts" role="tab" aria-controls="charts" aria-selected="false">Graficos</a>
+        </li>
+    </ul>
+    <div class="tab-content mt-3" id="plan-tab-content">
+        <div class="tab-pane fade show active" id="tasks" role="tabpanel" aria-labelledby="tasks-tab">
+            <table id="tasks-table" class="table table-bordered table-striped" style="width: 100%">
+                <thead>
+                <tr>
+                    <th>Tienda</th>
+                    <th>Estado</th>
+                    <th>Inicio el:</th>
+                    <th>Finalizo el:</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for task in plan.tasks.all %}
+                    <tr>
+                        <td><a href="{% url 'optimalmix:task_detail' plan.id task.id %}">{{ task.store }}</a></td>
+                        <td>{% with status=task.get_status_bootstrap %}<span class="badge badge-{{ status.1 }}">{{ status.0 }}</span>{% endwith %}</td>
+                        <td>{% if task.started_at %}{{ task.started_at|timezone:'America/Santiago' }}{% else %}-{% endif %}</td>
+                        <td>{% if task.ended_at %}{{ task.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}</td>
+                        <td>
+                            <div class="btn-group">
+                                {% if task.show_cancel_btn %}
+                                    <button class="btn btn-warning btn-sm cancel-task" data-task-id="{{ task.id }}" role="button">Cancelar</button>
+                                {% endif %}
+                                {% if task.results %}
+                                    <a href="/media/{{ task.results }}" class="btn btn-success btn-sm" role="button">Descargar</a>
+                                {% endif %}
+                                {% if task.error_stack_trace %}
+                                    <a href="#" class="btn btn-danger btn-sm btn-stack-trace" role="button">Error<div data-storename="{{ task.store }}" style="display: none">{{ task.error_stack_trace }}</div></a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="tab-pane fade" id="parameters" role="tabpanel" aria-labelledby="parameters-tab">
+            <table id="shift-parameters-table" class="table table-bordered table-striped" style="width: 100%">
+                <thead>
+                <tr>
+                    <th>Parametros por turno</th>
+                    {% for shift in parameters.Turnos %}
+                        <th>{{ shift }}</th>
+                    {% endfor %}
+                </tr>
+                </thead>
+                <tbody>
+                {% for shift_parameter in shift_parameters %}
+                    <tr>
+                        <td title="{{ shift_parameter.description }}">{{ shift_parameter.label }}</td>
+                        {% for shift in parameters.Turnos %}
+                            <td>{{ parameters|get_item:shift_parameter.name|get_item:shift }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                {% for shift_parameter in shift_boolean_parameters %}
+                    <tr>
+                        {% with shift_list=parameters|get_item:shift_parameter.name %}
+                            <td title="{{ shift_parameter.description }}">{{ shift_parameter.label }}</td>
+                            {% for shift in parameters.Turnos %}
+                                <td>{% if shift in shift_list %}Si{% else %}No{% endif %}</td>
+                            {% endfor %}
+                        {% endwith %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <hr>
+
+            <table class="table table-bordered table-striped" style="width: 50%">
+                <thead>
+                <tr>
+                    <th>Parametro</th>
+                    <th>Valor</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td title="[ppto]">Presupuesto</td>
+                    <td>{{ parameters.ppto }}</td>
+                </tr>
+                <tr>
+                    <td title="[sobrecargo]">Sobrecargo</td>
+                    <td>{{ parameters.sobrecargo }}</td>
+                </tr>
+                <tr>
+                    <td title="[cu]">Costo understaffing</td>
+                    <td>{{ parameters.cu }}</td>
+                </tr>
+                <tr>
+                    <td title="[co]">Costo overstaffing</td>
+                    <td>{{ parameters.co }}</td>
+                </tr>
+                <tr>
+                    <td title="Service level [slmin]">Nivel de servicio</td>
+                    <td>{{ parameters.slmin }}</td>
+                </tr>
+                <tr>
+                    <td title="[opmin]">Nivel de operación mínimo</td>
+                    <td>{{ parameters.opmin }}</td>
+                </tr>
+                <tr>
+                    <td title="[opmax]">Nivel de operación máximo</td>
+                    <td>{{ parameters.opmax }}</td>
+                </tr>
+                <tr>
+                    <td title="[SemCambioDotacion]">Semanas de contrato y despido</td>
+                    <td>{{ parameters.SemCambioDotacion }}</td>
+                </tr>
+                <tr>
+                    <td title="[horasmensual]">Horas por mes</td>
+                    <td>{{ parameters.horasmensual }}</td>
+                </tr>
+                <tr>
+                    <td title="[mip_gap]">Exigencia del optimizador</td>
+                    <td>{{ parameters.mip_gap }}%</td>
+                </tr>
+                <tr>
+                    <td title="[days_cycle]">Dias por subejecucion</td>
+                    <td>{{ parameters.days_cycle }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="tab-pane fade" id="timeranges" role="tabpanel" aria-labelledby="timeranges-tab">
+            {% if not parameters.weekday_kind %}
+                <table class="table table-bordered table-striped" style="width: 100%">
+                    <thead>
+                    <tr>
+                        <th>Horario de apertura</th>
+                        <th>Horario de cierre</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>
+                            <ul>
+                                {% for time in parameters.open_start_time %}
+                                    <li>{{ time }} - {{ parameters.open_end_time|index:forloop.counter0 }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td>
+                            <ul>
+                                {% for time in parameters.close_start_time %}
+                                    <li>{{ time }} - {{ parameters.close_end_time|index:forloop.counter0 }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            {% else %}
+                <table class="table table-bordered table-striped" style="width: 100%">
+                    <thead>
+                    <tr>
+                        <th>Dia</th>
+                        <th>Horario de apertura</th>
+                        <th>Horario de cierre</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>Lunes</td>
+                        <td>{{ parameters.open_start_time.0 }} - {{ parameters.open_end_time.0 }}</td>
+                        <td>{{ parameters.close_start_time.0 }} - {{ parameters.close_end_time.0 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Martes</td>
+                        <td>{{ parameters.open_start_time.1 }} - {{ parameters.open_end_time.1 }}</td>
+                        <td>{{ parameters.close_start_time.1 }} - {{ parameters.close_end_time.1 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Miercoles</td>
+                        <td>{{ parameters.open_start_time.2 }} - {{ parameters.open_end_time.2 }}</td>
+                        <td>{{ parameters.close_start_time.2 }} - {{ parameters.close_end_time.2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Jueves</td>
+                        <td>{{ parameters.open_start_time.3 }} - {{ parameters.open_end_time.3 }}</td>
+                        <td>{{ parameters.close_start_time.3 }} - {{ parameters.close_end_time.3 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Viernes</td>
+                        <td>{{ parameters.open_start_time.4 }} - {{ parameters.open_end_time.4 }}</td>
+                        <td>{{ parameters.close_start_time.4 }} - {{ parameters.close_end_time.4 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Sabado</td>
+                        <td>{{ parameters.open_start_time.5 }} - {{ parameters.open_end_time.5 }}</td>
+                        <td>{{ parameters.close_start_time.5 }} - {{ parameters.close_end_time.5 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Domingo</td>
+                        <td>{{ parameters.open_start_time.6 }} - {{ parameters.open_end_time.6 }}</td>
+                        <td>{{ parameters.close_start_time.6 }} - {{ parameters.close_end_time.6 }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+        <div class="tab-pane fade" id="charts" role="tabpanel" aria-labelledby="charts-tab">
+            <div class="form-row">
+                <div class="col">
+                    <label for="store_id" class="mr-2">Tienda</label>
+                    <select class="form-control inline-select mb-2 mr-sm-2" id="store_id" name="store">
+                        {% for task in tasks_with_results %}
+                            <option value="{{ task.results }}">{{ task.store }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="kind_id" class="mr-2">Tipo de grafico</label>
+                    <select class="form-control inline-select mb-2 mr-sm-2" id="kind_id" name="kind">
+                        <option value="staff">Dotacion</option>
+                        <option value="demand">Demanda</option>
+                        <option value="hours">Horas extra y horas compensadas</option>
+                    </select>
+                </div>
+            </div>
+            {% if tasks_with_results.count < 1 %}
+                <div class="alert alert-warning" role="alert">
+                    No hay tiendas con resultados
+                </div>
+            {% endif %}
+            <canvas id="store-chart" style="width: 100%"></canvas>
+        </div>
+    </div>
+
+    <div id="error-modal" class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body"><pre></pre></div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        let demandData = [];
+        let staffData = {};
+        let hoursData = {
+            'hx': [],
+            'hc': []
+        };
+        let selectedStore, lineChart = null;
+        let selectedKind = 'staff';
+        let shiftKeys = [];
+
+        $(document).ready(function() {
+            let columnTargets = [0];
+            {% for shift in parameters.Turnos %}
+                columnTargets.push({{ forloop.counter }});
+            {% endfor %}
+
+            if ($('.cancel-task').length > 0) {
+                $('#plan-btns').append('<a href="{% url 'optimalmix:cancel_plan' plan.id %}" class="btn btn-warning btn-sm" role="button">Cancelar ejecucion</a>');
+            }
+
+            dataTable3('tasks-table', {
+                order: [[0, 'asc']],
+                buttons: [{extend:'pageLength',className: 'btn btn-fill'}]
+            });
+            $('#tasks-table_filter').hide();
+
+            $('#shift-parameters-table').DataTable({
+                columnDefs: [{
+                    orderable: false,
+                    targets: columnTargets
+                }],
+                order: [],
+                paging: false,
+                info: false,
+                searching: false,
+                scrollX: true,
+                scrollCollapse: true,
+                fixedColumns: {
+                    leftColumns: 1
+                }
+            });
+
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                $.fn.dataTable.tables( {visible: true, api: true} ).columns.adjust();
+            });
+
+            let tbodySelector = $('#tasks tbody');
+
+            tbodySelector.on('click', '.btn-stack-trace', function () {
+                $('#error-modal h5').text($(this).children().first().data('storename'));
+                $('#error-modal pre').text($(this).children().first().text());
+                $('#error-modal').modal();
+            });
+
+            tbodySelector.on('click', '.cancel-task', function () {
+                let taskId = $(this).data('task-id');
+                let cancelBtn = $(this);
+                $.ajax({
+                    method: 'GET',
+                    url: '/optimalmix/tasks/' + taskId + '/cancel/'
+                })
+                    .done(function (response) {
+                        if (response.content.status === "Success") {
+                            buildSuccessAlert("Tarea cancelada exitosamente", "");
+                            $('#plan-status').removeClass().addClass('badge badge-warning').text('Cancelado');
+                            cancelBtn.parent().parent().prev().prev().prev().children().first().removeClass().addClass('badge badge-warning').text('Revocado');
+                            cancelBtn.attr('disabled', true);
+
+                        } else if (response.content.status === "Error") {
+                            buildErrorAlert("Error al cancelar la tarea", "");
+                        }
+                    });
+            });
+
+            let storeSelector = $('#store_id');
+
+            storeSelector.change(function () {
+                let filePath = $(this).val();
+                let outputUrl = '/media/' + filePath;
+                if (outputUrl.length < 8 || filePath == null) {
+                    return;
+                }
+                $.ajax({
+                    xhrFields: {
+                        responseType: 'blob'
+                    },
+                    type : 'GET',
+                    url : outputUrl
+                }).done(function(response) {
+                    let reader = new FileReader();
+                    reader.onload = function(event) {
+                        demandData = [];
+                        staffData = {};
+                        hoursData = {
+                            'hx': [],
+                            'hc': []
+                        };
+                        let data = new Uint8Array(event.target.result);
+                        let workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                        let rows = XLSX.utils.sheet_to_row_object_array(workbook.Sheets['Semanas']);
+                        let nonShiftKeys = ['Rango inicio', 'Rango fin', 'hx', 'hc', 'oferta', 'ymenos', 'ymas', 'demanda'];
+                        shiftKeys = Object.keys(rows[0]);
+                        nonShiftKeys.forEach(function (key) {
+                            let index = shiftKeys.indexOf(key);
+                            if (index !== -1) {
+                                shiftKeys.splice(index, 1);
+                            }
+                        });
+                        shiftKeys.forEach(function (key) {
+                            staffData[key] = [];
+                        });
+                        rows.forEach(function (row) {
+                            let iterDate = row['Rango inicio'];
+                            let momentDate = moment({
+                                day: iterDate.getUTCDate(),
+                                month: iterDate.getUTCMonth(),
+                                year: iterDate.getUTCFullYear()
+                            });
+                            hoursData['hx'].push({
+                                t: momentDate,
+                                y: row['hx']
+                            });
+                            hoursData['hc'].push({
+                                t: momentDate,
+                                y: row['hc']
+                            });
+                            demandData.push({
+                                t: momentDate,
+                                y: row['demanda']
+                            });
+                            shiftKeys.forEach(function (shift) {
+                                staffData[shift].push({
+                                    t: momentDate,
+                                    y: row[shift]
+                                });
+                            });
+                        });
+                        drawChart();
+                    };
+                    reader.readAsArrayBuffer(response);
+                });
+            });
+
+            $('#kind_id').change(function () {
+                selectedKind = $(this).val();
+                drawChart();
+            });
+
+            storeSelector.trigger('change');
+        });
+
+        function drawChart() {
+            let chartColors = ['rgba(244, 67, 54, 0.3)', 'rgba(33, 150, 243, 0.3)', 'rgba(76, 175, 80, 0.3)',
+                'rgba(255, 235, 59, 0.8)', 'rgba(156, 39, 176, 0.3)', 'rgba(255, 87, 34, 0.3)',
+                'rgba(0, 150, 136, 0.3)', 'rgba(121, 85, 72, 0.3)'];//http://materialuicolors.co/
+
+            let labelString = '';
+            let chartData = {};
+            if (selectedKind === 'staff') {
+                labelString = 'Dotacion'
+                chartData = {
+                    datasets: []
+                }
+                shiftKeys.forEach(function (shift, index) {
+                    chartData.datasets.push({
+                        data: staffData[shift],
+                        label: shift,
+                        fill: false,
+                        cubicInterpolationMode: 'monotone',
+                        lineTension: 0,
+                        hidden: false,
+                        backgroundColor: chartColors[index%8],
+                        borderColor: chartColors[index%8],
+                    })
+                });
+            } else if (selectedKind === 'demand') {
+                labelString = 'Demanda';
+                chartData = {
+                    datasets: [
+                        {
+                            data: demandData,
+                            label: "Demanda",
+                            fill: false,
+                            cubicInterpolationMode: 'monotone',
+                            lineTension: 0,
+                            hidden: false,
+                            backgroundColor: chartColors[2],
+                            borderColor: chartColors[2],
+                        },
+                    ]
+                };
+            } else {
+                labelString = 'Horas';
+                chartData = {
+                    datasets: [
+                        {
+                            data: hoursData['hx'],
+                            label: "Horas extra",
+                            fill: false,
+                            cubicInterpolationMode: 'monotone',
+                            lineTension: 0,
+                            hidden: false,
+                            backgroundColor: chartColors[0],
+                            borderColor: chartColors[0],
+                        },
+                        {
+                            data: hoursData['hc'],
+                            label: "Horas compensadas",
+                            fill: false,
+                            cubicInterpolationMode: 'monotone',
+                            lineTension: 0,
+                            hidden: false,
+                            backgroundColor: chartColors[1],
+                            borderColor: chartColors[1],
+                        }
+                    ]
+                };
+            }
+
+            let chartOptions = {
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        distribution: 'series',
+                        time: {
+                            unit: 'day',
+                            tooltipFormat:'DD/MM/YYYY'
+                        }
+                    }],
+                    yAxes: [{
+                        scaleLabel: {
+                            display:     true,
+                            labelString: labelString
+                        },
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            };
+            let canvasSelector = $('#store-chart');
+            if (lineChart !== null) {
+                lineChart.destroy();
+            }
+            lineChart = new Chart(canvasSelector, {
+                type: 'line',
+                data: chartData,
+                options: chartOptions
+            });
+        }
+    </script>
+{% endblock %}
