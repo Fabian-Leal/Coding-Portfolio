@@ -9,7 +9,6 @@ This repository holds all of my personal projects that I've done since I was an 
 
 2. Undergrad Programming Projects
 
-
 ## Background
 Hello!
 
