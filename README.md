@@ -12,7 +12,7 @@ This repository holds all of my personal projects that I've done since I was an 
 ## Background
 Hello!
 
-My name is Fabián Leal. A little bit about me: I did my undergraduate at Universidad de Chile where I majored in Industrial Engineering and did a Masters in Operations Research, both focused on data science and applied mathematics. 
+My name is Fabián Leal. A little bit about me: I did my undergraduate at Universidad de Chile where I majored in Industrial Engineering and did a Masters in Operations Research, both focused on data science and applied mathematics. I had many programming assignments and participated in some extracurricular projects that I included in this repository. 
 
 I recently started working as a Data Analytics Consultant at a B2B Workforce Management Consulting firm, where I help other companies improve their workforce planning by analyzing their data, gathering insights, and programming for whatever problems I may find! 
 
