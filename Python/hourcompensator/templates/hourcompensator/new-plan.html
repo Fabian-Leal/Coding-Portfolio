@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Ejecutar Compensador de Horas{% endblock %}
+
+{% block styles %}
+    <style>
+        #shift-col-1 {
+            padding-top: 3px;
+            padding-bottom: 3px;
+            vertical-align: middle;
+            line-height: 2;
+        }
+
+        #shift-container > .row {
+            margin-bottom: 5px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h3 class="mb-3">Ejecucion del Compensador de Horas</h3>
+    <form id="mix-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group row">
+            <label for="name_id" class="col-sm-2 col-form-label">Nombre</label>
+            <div class="col-sm-5">
+                <input id="name_id" name="name" type="text" class="form-control" required>
+            </div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-7">
+                <div class="custom-file">
+                    <input type="file" name="curve" class="custom-file-input" id="curve-input" required>
+                    <label class="custom-file-label" for="curve-input">Cargar archivo de curvas</label>
+                </div>
+            </div>
+            <div class="col-sm-5"><span id="curve-filename" class="badge badge-secondary" style="display: none"></span></div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-7">
+                <div class="custom-file">
+                    <input type="file" name="schedule" class="custom-file-input" id="schedule-input" required>
+                    <label class="custom-file-label" for="schedule-input">Cargar archivo de horarios</label>
+                </div>
+            </div>
+            <div class="col-sm-5"><span id="schedule-filename" class="badge badge-secondary" style="display: none"></span></div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-7">
+                <div class="custom-file">
+                    <input type="file" name="balance" class="custom-file-input" id="balance-input" required>
+                    <label class="custom-file-label" for="balance-input">Cargar archivo de saldos por compensar</label>
+                </div>
+            </div>
+            <div class="col-sm-5"><span id="balance-filename" class="badge badge-secondary" style="display: none"></span></div>
+        </div>
+        <hr>
+        <div id="cases-container">
+            <div class="row">
+                <label for="cases-input" class="col-sm-2 col-form-label">Escenarios</label>
+                <div class="col-sm-5">
+                    <div class="input-group mb-3">
+                        <input id="cases-input" type="number" class="form-control" aria-describedby="basic-addon2" step="1" min="1" value="1">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" id="generate-rows-btn">Generar</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-5">
+                    <div class="custom-file">
+                        <input type="file" name="parameters" class="custom-file-input" id="parameters-input">
+                        <label class="custom-file-label" for="parameters-input">Cargar archivo de parametros</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="parameters mb-3">
+            <!-- .table-striped arruina la primera columna fixed -->
+            <table id="parameters-table" class="table table-striped table-bordered" style="width:100%">
+                <thead>
+                <tr>
+                    <th>Holgura critica</th>
+                    <th>Limite de corte</th>
+                    <th>Máximo de compensacion</th>
+                    <th>Máximo de horas extra</th>
+                    <th>Turno mínimo</th>
+                    <th>K_a</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><label for="holgura_id" class="sr-only"></label><input class="form-control" type="number" name="holgura[0]" id="holgura_id" required></td>
+                    <td><label for="corte_id" class="sr-only"></label><input class="form-control" type="number" name="corte[0]" id="corte_id" required></td>
+                    <td><label for="comp_max_id" class="sr-only"></label><input class="form-control" type="number" name="comp_max[0]" id="comp_max_id" required></td>
+                    <td><label for="hh_ee_max_id" class="sr-only"></label><input class="form-control" type="number" name="hh_ee_max[0]" id="hh_ee_max_id" required></td>
+                    <td><label for="turno_min_id" class="sr-only"></label><input class="form-control" type="number" name="turno_min[0]" id="turno_min_id" required></td>
+                    <td><label for="ka_id" class="sr-only"></label><input class="form-control" type="number" name="ka[0]" id="ka_id" required></td>
+                </tr>
+                </tbody>
+            </table>
+            <button id="submit-btn" type="submit" class="btn btn-success mb-2">Ejecutar Compensador de Horas</button>
+        </div>
+    </form>
+
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        let shiftCount = 1;
+        var table = -1;
+        let parameters = ["holgura", "corte", "comp_max", "hh_ee_max", "turno_min", "ka"];
+
+
+        $(document).ready(function() {
+            let sheetStartDate, sheetEndDate;
+            //let rangeInput = $('input[name="range"]');
+            let generateRowsBtn = $('#generate-rows-btn');
+            let parametersFileInputMessage = $('#parameters-file-input-message');
+
+            let tableSelector = $('#parameters-table');
+
+            generateRowsBtn.click(function () {
+                let rows = parseInt($('#cases-input').val(), 10);
+                //$('#parameters-table tbody').html('');
+                let body = ''
+                for (let i = 0; i < rows; i++) {
+                    body += '<tr>';
+                    parameters.forEach(function (parameter) {
+                        body += '<td><input class="form-control" type="number" name="'+parameter+'['+i+']" required></td>';
+                    });
+                    body += '</tr>';
+                }
+                $('#parameters-table tbody').html(body);
+            });
+
+            $('#parameters-input').change(function (event) {
+                let files = event.target.files, f = files[0];
+                let reader = new FileReader();
+                reader.onload = function(event) {
+                    parametersFileInputMessage.hide();
+                    let data = new Uint8Array(event.target.result);
+                    let workbook = XLSX.read(data, {type: 'array'});
+
+                    if (!('Parametros' in workbook.Sheets)) {
+                        parametersFileInputMessage.show();
+                        parametersFileInputMessage.text('El archivo no posee una hoja llamada "Parametros"');
+                        return;
+                    }
+                    let rows = XLSX.utils.sheet_to_row_object_array(workbook.Sheets['Parametros']);
+                    console.log(workbook);
+                    let shifts = Object.keys(rows[0]);
+                    nonShiftIndex = shifts.indexOf('Turnos');
+                    if (nonShiftIndex > -1) {
+                        shifts.splice(nonShiftIndex, 1);
+                    }
+                    if (shifts.length < 1) {
+                        parametersFileInputMessage.show();
+                        parametersFileInputMessage.text('Error en archivo de parametros');
+                        return;
+                    }
+                    $('input[name="shift[0]"]').val(shifts[0]);
+                    while (shiftCount > 1) {
+                        removeShiftBtn.click();
+                    }
+                    for (let i=1; i < shifts.length; i++) {
+                        addShiftBtn.click();
+                        $('input[name="shift['+i+']"]').val(shifts[i]);
+                    }
+                    generateTableBtn.click();
+                    rows.forEach(function (row, index) {
+                        let parameter = row['Turnos'];
+                        if (scalarParametersList.includes(parameter)) {
+                            let keys = Object.keys(row);
+                            let valueKey = keys[0] !== 'Turnos' ? keys[0] : keys[1];
+                            $('input[name="'+parameter+'"]').val(row[valueKey]);
+                        } else if (constraintParametersList.includes(parameter)) {
+                            let keys = Object.keys(row);
+                            let valueKey = keys[0] !== 'Turnos' ? keys[0] : keys[1];
+                            if (row[valueKey].toLowerCase() === 'no') {
+                                $('input[name="'+parameter+'"]').prop('checked', false);
+                            }
+                        } else {
+                            shifts.forEach(function (shift, index) {
+                                $('input[name="'+parameter+'['+shift+']'+'"]').val(row[shift]);
+                            });
+                        }
+                    });
+                };
+                reader.readAsArrayBuffer(f);
+            });
+
+            let demandInputSelector = $('#demand-input');
+            demandInputSelector.change(function (event) {
+                $('#demand-filename').html(''+demandInputSelector.val().split(/(\\|\/)/g).pop()).show();
+                let demandStoresSelector = $('#demand-stores');
+
+                let files = event.target.files, f = files[0];
+                let reader = new FileReader();
+                reader.onload = function(event) {
+                    let data = new Uint8Array(event.target.result);
+                    let workbook = XLSX.read(data, {type: 'array', cellDates: true});
+
+                    demandStoresSelector.html('');
+                    asdf = workbook.SheetNames;
+                    workbook.SheetNames.forEach(function (store, index) {
+                        demandStoresSelector.append('<div class="form-check"><input name="store" class="form-check-input" type="checkbox" value="' + store + '" id="check-' + store + '" checked><label class="form-check-label" for="check-' + store + '">' + store + '</label></div>');
+                    });
+                    let rows = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[workbook.SheetNames[0]]);
+                    let startDate = rows[0]['FECHA'];
+                    let endDate = rows[rows.length - 1]['FECHA'];
+                    sheetStartDate = moment({
+                        day: startDate.getUTCDate(),
+                        month: startDate.getUTCMonth(),
+                        year: startDate.getUTCFullYear()
+                    });
+                    sheetEndDate = moment({
+                        day: endDate.getUTCDate(),
+                        month: endDate.getUTCMonth(),
+                        year: endDate.getUTCFullYear()
+                    });
+
+                    rangeInput.daterangepicker({
+                        startDate: sheetStartDate,
+                        endDate: sheetEndDate,
+                        minDate: sheetStartDate,
+                        maxDate: sheetEndDate,
+                        locale: dataRangePickerLocale
+                    });
+
+                    $('input[name="sheet_start_date"]').val(sheetStartDate.format('DD/MM/YYYY'));
+                    $('input[name="sheet_end_date"]').val(sheetEndDate.format('DD/MM/YYYY'));
+
+                    $('#range-div').show();
+                };
+                reader.readAsArrayBuffer(f);
+            });
+        });
+    </script>
+{% endblock %}

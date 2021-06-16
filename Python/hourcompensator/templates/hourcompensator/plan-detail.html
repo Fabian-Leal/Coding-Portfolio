@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tz %}
+{% load get_item %}
+{% block title %}{{ plan.name }}{% endblock %}
+
+{% block content %}
+    <h3 class="mb-3">{{ plan.name }}</h3>
+    <b>Estado:</b> {% with status=plan.get_status_bootstrap %}<span id="plan-status" class="badge badge-{{ status.1 }}">{{ status.0 }}</span>{% endwith %}<br>
+    <b>Creado por:</b> {{ plan.created_by.name }}<br>
+    <b>Creado el:</b> {{ plan.created_at|timezone:'America/Santiago' }}<br>
+    <b>Finalizado el:</b> {% if plan.ended_at %}{{ plan.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}
+    <br>
+    <b>Acciones:</b>
+    <div id="plan-btns" class="btn-group">
+        {% if plan.has_results %}
+            <a class="btn btn-sm btn-success" href="{% url 'hourcompensator:plan_results' plan.id %}">Resultados</a>
+        {% endif %}
+    </div>
+    <br>
+
+    <hr>
+    <table class="table table-bordered table-striped" style="width: 50%">
+        <thead>
+        <tr>
+            <th>Parametro</th>
+            <th>Valor</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>Domingo (pivote)</td>
+            <td>{{ current_sunday }}</td>
+        </tr>
+        <tr>
+            <td>Semana compensada</td>
+            <td>{{ range_start }} - {{ range_end }}</td>
+        </tr>
+        </tbody>
+    </table>
+    <table id="tasks" class="table table-bordered table-striped" style="width: 100%">
+        <thead>
+        <tr>
+            <th>Tarea</th>
+            <th>Estado</th>
+            <th>Inicio el:</th>
+            <th>Finalizo el:</th>
+            <th>Acciones</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for task in plan.tasks.all %}
+            <tr>
+                <td><a href="{% url 'hourcompensator:task_detail' plan.id task.id %}">{{ task.name }}</a></td>
+                <td>{% with status=task.get_status_bootstrap %}<span class="badge badge-{{ status.1 }}">{{ status.0 }}</span>{% endwith %}</td>
+                <td>{% if task.started_at %}{{ task.started_at|timezone:'America/Santiago' }}{% else %}-{% endif %}</td>
+                <td>{% if task.ended_at %}{{ task.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}</td>
+                <td>
+                    <div class="btn-group">
+                        {% if task.show_cancel_btn %}
+                            <button class="btn btn-warning btn-sm cancel-task" data-task-id="{{ plan.task.id }}" role="button">Cancelar</button>
+                        {% endif %}
+                        {% if task.main_results %}
+                            <a href="/media/{{ task.main_results }}" class="btn btn-success btn-sm" role="button" target="_blank">Compensación</a>
+                        {% endif %}
+                        {% if task.error_stack_trace %}
+                            <a href="#" class="btn btn-danger btn-sm btn-stack-trace" role="button">Error<div data-name="{{ task.name }}" style="display: none">{{ task.error_stack_trace }}</div></a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+
+    <div id="error-modal" class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body"><pre></pre></div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        $(document).ready(function() {
+
+            $('.btn-stack-trace').click(function () {
+                console.log($(this).children().first().text());
+                $('#error-modal h5').text($(this).children().first().data('name'));
+                $('#error-modal pre').text($(this).children().first().text());
+                $('#error-modal').modal();
+            });
+
+            $('.cancel-task').click(function () {
+                let taskId = $(this).data('task-id');
+                let cancelBtn = $(this);
+                $.ajax({
+                    method: 'GET',
+                    url: '/optimalmix/tasks/' + taskId + '/cancel/'
+                })
+                    .done(function (response) {
+                        if (response.content.status === "Success") {
+                            buildSuccessAlert("Tarea cancelada exitosamente", "");
+                            $('#plan-status').removeClass().addClass('badge badge-warning').text('Cancelado');
+                            $('#thread-status').removeClass().addClass('badge badge-warning').text('Revocado');
+                            cancelBtn.attr('disabled', true);
+                        } else if (response.content.status === "Error") {
+                            buildErrorAlert("Error al cancelar la tarea", "");
+                        }
+                    });
+            });
+        });
+    </script>
+{% endblock %}

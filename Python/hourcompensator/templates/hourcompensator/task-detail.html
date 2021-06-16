@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tz %}
+{% load get_item %}
+{% block title %}{{ task.name }}{% endblock %}
+
+{% block content %}
+    <h3 class="mb-3">{{ task.name }}</h3>
+    <b>Estado del thread:</b> {% with status=task.get_status_bootstrap %}<span id="thread-status" class="badge badge-{{ status.1 }}">{{ status.0 }}</span>{% endwith %}<br>
+    <b>Creado el:</b> {{ task.started_at|timezone:'America/Santiago' }}<br>
+    <b>Finalizado el:</b> {% if task.ended_at %}{{ task.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}
+    <br>
+    <b>Acciones:</b>
+    <div id="plan-btns" class="btn-group">
+        {% if task.show_cancel_btn %}
+            <button class="btn btn-warning btn-sm cancel-task" data-task-id="{{ task.id }}" role="button">Cancelar</button>
+        {% endif %}
+        {% if task.error_stack_trace %}
+            <a href="#" class="btn btn-danger btn-sm btn-stack-trace" role="button">Error<div style="display: none">{{ task.error_stack_trace }}</div></a>
+        {% endif %}
+    </div>
+    <br>
+    <b>Archivos de entrada:</b>
+    <div class="btn-group mt-1">
+        {% if task.curve_attach %}<a href="/media/{{ task.curve_attach }}" class="btn btn-primary btn-sm" role="button" target="_blank">Curvas</a>{% endif %}
+        {% if task.schedule_attach %}<a href="/media/{{ task.schedule_attach }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Horarios</a>{% endif %}
+        {% if task.amount_attach %}<a href="/media/{{ task.amount_attach }}" class="btn btn-primary btn-sm" role="button" target="_blank">Saldos</a>{% endif %}
+    </div>
+    <br>
+    <b>Resultados:</b>
+    <div class="btn-group mt-1">
+        {% if task.main_results %}<a href="/media/{{ task.main_results }}" class="btn btn-success btn-sm" role="button" target="_blank">Compensación</a>{% endif %}
+        {% if task.curves_results %}<a href="/media/{{ task.curves_results }}" class="btn btn-primary btn-sm" role="button" target="_blank">Curvas</a>{% endif %}
+        {% if task.compensated_schedules_results %}<a href="/media/{{ task.compensated_schedules_results }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Horarios compensados</a>{% endif %}
+    </div>
+    <br>
+    <b>Registros de peticiones:</b>
+    <div class="btn-group mt-1">
+        {% if task.unlock_request %}<a href="/media/{{ task.unlock_request }}" class="btn btn-primary btn-sm" role="button" target="_blank">Desbloqueo de horarios</a>{% endif %}
+        {% if task.delete_request %}<a href="/media/{{ task.delete_request }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Eliminación de horarios</a>{% endif %}
+        {% if task.shift_request %}<a href="/media/{{ task.shift_request }}" class="btn btn-primary btn-sm" role="button" target="_blank">Turnos</a>{% endif %}
+        {% if task.absences_request %}<a href="/media/{{ task.absences_request }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Compensación</a>{% endif %}
+        {% if task.lock_request %}<a href="/media/{{ task.lock_request }}" class="btn btn-primary btn-sm" role="button" target="_blank">Bloqueo de horarios</a>{% endif %}
+    </div>
+    <br>
+    <b>Registros de respuestas:</b>
+    <div class="btn-group mt-1">
+        {% if task.unlock_response %}<a href="/media/{{ task.unlock_response }}" class="btn btn-primary btn-sm" role="button" target="_blank">Desbloqueo de horarios</a>{% endif %}
+        {% if task.delete_response %}<a href="/media/{{ task.delete_response }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Eliminación de horarios</a>{% endif %}
+        {% if task.shift_response %}<a href="/media/{{ task.shift_response }}" class="btn btn-primary btn-sm" role="button" target="_blank">Turnos</a>{% endif %}
+        {% if task.absences_response %}<a href="/media/{{ task.absences_response }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Compensación</a>{% endif %}
+        {% if task.lock_response %}<a href="/media/{{ task.lock_response }}" class="btn btn-primary btn-sm" role="button" target="_blank">Bloqueo de horarios</a>{% endif %}
+    </div>
+
+    <hr>
+    <ul class="nav nav-tabs" id="task-tab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="parameters-tab" data-toggle="tab" href="#parameters" role="tab" aria-controls="tasks" aria-selected="true">Parametros</a>
+        </li>
+        {% if show_warning_tab %}
+            <li class="nav-item">
+                <a class="nav-link" id="warnings-tab" data-toggle="tab" href="#warnings" role="tab" aria-controls="warnings" aria-selected="false">Advertencias</a>
+            </li>
+        {% endif %}
+    </ul>
+    <div class="tab-content mt-3" id="task-tab-content">
+        <div class="tab-pane fade show active" id="parameters" role="tabpanel" aria-labelledby="parameters-tab">
+            <table class="table table-bordered table-striped" style="width: 50%">
+                <thead>
+                <tr>
+                    <th>Parametro</th>
+                    <th>Valor</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Domingo (pivote)</td>
+                    <td>{{ current_sunday }}</td>
+                </tr>
+                <tr>
+                    <td>Semana compensada</td>
+                    <td>{{ range_start }} - {{ range_end }}</td>
+                </tr>
+                <tr>
+                    <td>Tiendas</td>
+                    <td>
+                        <ul style="margin-bottom: 0">
+                            {% for site in parameters.sites %}
+                                <li>{{ site }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <table id="parameters-table" class="table table-striped table-bordered" style="width:100%">
+                <thead>
+                <tr>
+                    <th>Holgura critica</th>
+                    <th>Limite de corte</th>
+                    <th>Máximo de compensacion</th>
+                    <th>Maximo de compensacion en el dia</th>
+                    <th>Máximo de horas extra</th>
+                    <th>Turno mínimo</th>
+                    <th>Curva</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for case in parameters.cases_parameters %}
+                    <tr>
+                        <td>{{ case.holgura_critica }}</td>
+                        <td>{{ case.limite_corte }}</td>
+                        <td>{{ case.comp_max }}</td>
+                        <td>{{ case.maximo_compensacion_dia }}</td>
+                        <td>{{ case.hh_ee_max }}</td>
+                        <td>{{ case.turno_minimo }}</td>
+                        <td>{{ case.k_a }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="tab-pane fade" id="warnings" role="tabpanel" aria-labelledby="warnings-tab">
+            <table class="table table-bordered table-striped" style="width: 50%">
+                <thead>
+                <tr>
+                    <th>Archivo de entrada</th>
+                    <th>Tiendas no encontradas</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Curvas</td>
+                    <td>
+                        <ul style="margin-bottom: 0">
+                            {% for site in warnings.curve %}
+                                <li>{{ site }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Horarios</td>
+                    <td>
+                        <ul style="margin-bottom: 0">
+                            {% for site in warnings.schedule %}
+                                <li>{{ site }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Saldos</td>
+                    <td>
+                        <ul style="margin-bottom: 0">
+                            {% for site in warnings.amount %}
+                                <li>{{ site }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="error-modal" class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body"><pre></pre></div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        $(document).ready(function() {
+            $('.btn-stack-trace').click(function () {
+                console.log($(this).children().first().text());
+                $('#error-modal pre').text($(this).children().first().text());
+                $('#error-modal').modal();
+            });
+        });
+    </script>
+{% endblock %}

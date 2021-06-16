@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tz %}
+{% load get_item %}
+{% block title %}{{ plan.name }}{% endblock %}
+
+{% block styles %}
+    <style>
+        #parameters-table ul {
+            margin-bottom: 0;
+        }
+    </style>
+{% endblock styles %}
+
+{% block content %}
+    <h3 class="mb-3">{{ plan.name }}</h3>
+    <div class="row">
+        <div class="col col-sm-12">
+            <b>Estado:</b> {% with status=plan.get_status_bootstrap %}<span class="badge badge-{{ status.1 }}" id="plan-status">{{ status.0 }}</span>{% endwith %}<br>
+            <b>Rango de ejecucion:</b> {{ parameters.start_date }} - {{ parameters.end_date }}<br>
+            <b>Creado por:</b> {{ plan.created_by.name }}<br>
+            <b>Creado el:</b> {{ plan.created_at|timezone:'America/Santiago' }}<br>
+            <b>Finalizado el:</b> {% if plan.ended_at %}{{ plan.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}<br>
+            <b>Archivos de entrada:</b>
+            <div class="btn-group mt-1">
+                {% if plan.coverage_attach %}
+                    <a href="/media/{{ plan.coverage_attach }}" class="btn btn-primary btn-sm" role="button" target="_blank">Descargar archivo de cobertura</a>
+                {% endif %}
+                {% if plan.transactions_attach %}
+                    <a href="/media/{{ plan.transactions_attach }}" class="btn btn-secondary btn-sm" role="button" target="_blank">Descargar archivo de transacciones</a>
+                {% endif %}
+            </div><br>
+            <b>Acciones:</b>
+            <div class="btn-group mt-1" id="plan-btns">
+                {% if plan.has_results %}
+                    <a href="{% url 'coveragematrix:plan_results' plan.id %}" class="btn btn-success btn-sm" role="button" target="_blank">Resultados</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <hr>
+    <ul class="nav nav-tabs" id="plan-tab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="tasks-tab" data-toggle="tab" href="#tasks" role="tab" aria-controls="tasks" aria-selected="true">Tiendas</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="parameters-tab" data-toggle="tab" href="#parameters" role="tab" aria-controls="parameters" aria-selected="false">Parametros</a>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3" id="plan-tab-content">
+        <div class="tab-pane fade show active" id="tasks" role="tabpanel" aria-labelledby="tasks-tab">
+            <table id="tasks-table" class="table table-bordered table-striped" style="width: 100%">
+                <thead>
+                <tr>
+                    <th>Tienda</th>
+                    <th>Estado</th>
+                    <th>Unidad de cobertura</th>
+                    <th>Unidad de transaccion</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for task in plan.tasks.all %}
+                    <tr>
+                        <td>{{ task.name }}</td>
+                        <td>{% with status=task.get_status_bootstrap %}<span class="badge badge-{{ status.1 }}">{{ status.0 }}</span>{% endwith %}</td>
+                        <td>{{ task.get_coverage_unit }}</td>
+                        <td>{{ task.get_transaction_unit }}</td>
+                        <td>{% if task.started_at %}{{ task.started_at|timezone:'America/Santiago' }}{% else %}-{% endif %}</td>
+                        <td>{% if task.ended_at %}{{ task.ended_at|timezone:'America/Santiago' }}{% else %}-{% endif %}</td>
+                        <td>
+                            <div class="btn-group">
+                                {% if task.show_cancel_btn %}
+                                    <button class="btn btn-warning btn-sm cancel-task" data-task-id="{{ task.id }}" role="button">Cancelar</button>
+                                {% endif %}
+                                {% if task.results %}
+                                    <a href="#" class="btn btn-success btn-sm btn-results" role="button">Resultados<div style="display: none">{{ task.results }}</div></a>
+                                {% endif %}
+                                {% if task.error_stack_trace %}
+                                    <a href="#" class="btn btn-danger btn-sm btn-stack-trace" role="button">Error<div data-storename="{{ task.name }}" style="display: none">{{ task.error_stack_trace }}</div></a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="tab-pane fade" id="parameters" role="tabpanel" aria-labelledby="tasks-tab">
+            <table id="parameters-table" class="table table-bordered table-striped w-50">
+                <thead>
+                <tr>
+                    <th>Parametro</th>
+                    <th>Valor</th>
+                </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Combinar unidades de cobertura</td>
+                        <td>{% if parameters.merge_coverage_units %}Si{% else %}No{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <td>Unidades de cobertura</td>
+                        <td>
+                            <ul>
+                                {% for unit in parameters.coverage_units %}
+                                    <li>{{ unit }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Combinar unidades de transaccion</td>
+                        <td>{% if parameters.merge_transaction_units %}Si{% else %}No{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <td>Unidades de transaccion</td>
+                        <td>
+                            <ul>
+                                {% for unit in parameters.transaction_units %}
+                                    <li>{{ unit }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Iteraciones</td>
+                        <td>{{ parameters.iterations }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="error-modal" class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body"><pre></pre></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        var myvar;
+        $(document).ready(function() {
+            if ($('.cancel-task').length > 0) {
+                $('#plan-btns').append('<a href="{% url 'coveragematrix:cancel_plan' plan.id %}" class="btn btn-warning btn-sm" role="button">Cancelar ejecucion</a>');
+            }
+
+            dataTable3('tasks-table', {
+                order: [[0, 'asc']],
+                buttons: [{extend:'pageLength', className: 'btn btn-fill'}],
+                responsive: false
+            });
+            $('#tasks-table_filter').hide();
+
+            let tbodySelector = $('#tasks-table tbody');
+
+            tbodySelector.on('click', '.btn-stack-trace', function () {
+                console.log($(this).children().first().text());
+                $('#error-modal h5').text($(this).children().first().data('storename'));
+                $('#error-modal pre').text($(this).children().first().text());
+                $('#error-modal').modal();
+            })
+
+            tbodySelector.on('click', '.btn-results', function () {
+                let resultsData = $(this).children().first().text();
+                resultsData = resultsData.slice(1, -1);
+                let resultsArray = resultsData.split(',');
+                let name = $(this).parents('tr').children().eq(0).text();
+                let coverageUnit = $(this).parents('tr').children().eq(2).text();
+                let transactionUnit = $(this).parents('tr').children().eq(3).text();
+                $('#error-modal h5').text(name);
+                let bodyContent = `<b>Unidad de cobertura:</b> ${coverageUnit}<br>`+
+                    `<b>Unidad de transaccion:</b> ${transactionUnit}<br><table class="table table-bordered mt-2"><thead><tr>`;
+                resultsArray.forEach(function (value, index) {
+                    let i = index+1;
+                    bodyContent = bodyContent.concat(`<th>${i}</th>`);
+                });
+                bodyContent = bodyContent.concat(`</tr></head><tbody><tr>`);
+                resultsArray.forEach(function (value) {
+                    bodyContent = bodyContent.concat(`<td>${value}</td>`);
+                });
+                bodyContent = bodyContent.concat(`</tr></tbody></table>`);
+                $('#error-modal pre').html(bodyContent);
+                $('#error-modal').modal();
+            });
+
+            tbodySelector.on('click', '.cancel-task', function () {
+                let taskId = $(this).data('task-id');
+                let cancelBtn = $(this);
+                $.ajax({
+                    method: 'GET',
+                    url: '/coveragematrix/tasks/'+taskId+'/cancel/'
+                })
+                    .done(function(response) {
+                        if (response.content.status === "Success") {
+                            buildSuccessAlert("Tarea cancelada exitosamente", "");
+                            $('#plan-status').removeClass().addClass('badge badge-warning').text('Cancelado');
+                            cancelBtn.parents('tr').children().eq(1).children().first().removeClass().addClass('badge badge-warning').text('Revocado');
+                            cancelBtn.attr('disabled', true);
+
+                        } else if (response.content.status === "Error") {
+                            buildErrorAlert("Error al cancelar la tarea", "");
+                        }
+                    });
+            })
+        });
+    </script>
+{% endblock %}
