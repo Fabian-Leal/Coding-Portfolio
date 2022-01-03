@@ -1,14 +1,17 @@
 # Fabian Leal -  Projects Portfolio
 ## Index
 This repository holds all of my personal projects that I've done since I was an undergrad. Currently they're binned in two different categories:
-1. Programming Projects for work
+
+1. Data Science PhD
+
+2. Programming Projects for work at SCM LATAM
   - Data Science
     - Python
     - R
  - Optimization Models
  - Scripts
 
-2. Undergrad Programming Projects
+3. University Programming Projects
 
 ## Background
 Hello!
