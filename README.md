@@ -1,12 +1,11 @@
 # Fabian Leal -  Projects Portfolio 
 ## Index
-This repository holds all of my personal projects that I've done since I was an undergrad. Currently they're binned in three different categories:
+This repository holds all of my personal projects that I've done since I was an undergrad. Currently they're binned in two different categories:
 
-1. Data Science PhD
+1. Data Science PhD intensive modules
 
 2. Programming Projects for work at SCM LATAM
   
-3. University Programming Projects
 
 ## Background
 Hello!
