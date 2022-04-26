@@ -1,22 +1,18 @@
-# Fabian Leal -  Projects Portfolio [UNDER CONSTRUCTION]
+# Fabian Leal -  Projects Portfolio 
 ## Index
 This repository holds all of my personal projects that I've done since I was an undergrad. Currently they're binned in three different categories:
 
 1. Data Science PhD
 
 2. Programming Projects for work at SCM LATAM
-  - Data Science
-    - Python
-    - R
- - Optimization Models
- - Scripts
-
+  
 3. University Programming Projects
 
 ## Background
 Hello!
 
-My name is Fabián Leal. A little bit about me: I did my undergraduate at Universidad de Chile where I majored in Industrial Engineering and did a Masters in Operations Research, both focused on data science and applied mathematics. I had many programming assignments and participated in some extracurricular projects that I included in this repository. 
+My name is Fabián Leal. A little bit about me: I did my undergraduate at Universidad de Chile where I majored in Industrial Engineering and did a Masters in Operations Research, both focused on data science and applied mathematics.
 
-I recently started working as a Data Analytics Consultant at a B2B Workforce Management Consulting firm, where I help other companies improve their workforce planning by analyzing their data, gathering insights, and proposing/programming solutions for whatever problems I may find! 
+At the end of my undergraduate degree, I started working as a Data Analytics Consultant at a B2B Workforce Management Consulting firm, where I helped other companies improve their workforce planning by analyzing their data, gathering insights, and proposing/programming solutions to their problems. 
 
+I noticed that I was spending most of my time doing applied data science, and that this was the part of my job that I liked the most, so I decided to start a data science PhD program in the University of Western Australia, in collaboration with the DARE centre, which applies data science to natural resources problems. This starts with a twelve week intensive program in data science. We work on programming tasks every week, but only my solutions to the assessments will be uploaded in this repository, in order to protect the intellectual property of the DARE centre.
