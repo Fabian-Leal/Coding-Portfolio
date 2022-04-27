@@ -1,0 +1,83 @@
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(bnlearn)
+
+```
+
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 Graphical Models - Part 1 --------------
+# ------------------------------------------------------------------------------
+
+Markov blanket of E: 
+  
+  -Parents: A,B,C
+  -Children: G, H
+  -Spouses: F
+
+```{r}
+bn = model2network("[A][B][C][E|A:B:C][F|A:C][G|E][H|E:F]")
+mb(bn,"E")
+```
+
+
+
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 Graphical Models - Part 2 --------------
+# ------------------------------------------------------------------------------
+
+
+$p(x_A)p(x_B)p(x_C)p(x_E\mid x_A, x_B, x_C)p(x_F\mid x_A, x_C)p(x_G\mid x_E)p(x_H\mid x_E, x_F)$
+  
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 Graphical Models - Part 3 --------------
+# ------------------------------------------------------------------------------
+
+B and F are not conditionally independent when observing G because we are not observing all parents of F.
+(Markov Assumption)
+
+Additional check: B and F aren't D-separated by G, as we can see below: 
+```{r}
+
+library(bnlearn)
+bn = model2network("[A][B][C][E|A:B:C][F|A:C][G|E][H|E:F]")
+plot(bn)
+dsep(bn, 'B', 'F', 'G')
+```
+
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 Graphical Models - Part 4 --------------
+# ------------------------------------------------------------------------------
+
+Yes, since we are observing the parents of F (A and C), F is conditionally independent of B, and F is also conditionally independent of all its other non-descendants. 
+(Markov Assumption)
+
+
+Another way to check: B and F are D-separated by (A,C), as we can see below: 
+```{r}
+
+library(bnlearn)
+bn = model2network("[A][B][C][E|A:B:C][F|A:C][G|E][H|E:F]")
+plot(bn)
+dsep(bn, 'B', 'F', c('A','C'))
+```
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 Graphical Models - Part 5 --------------
+# ------------------------------------------------------------------------------
+
+Explaining away is a phenomenon in which the occurrence of one cause of an 
+observed event reduces the probability of occurrence of an alternative cause of said event 
+(the occurrence of one of the causes "explains away" the rest of the causes) 
+
+Think of a house with a big window, next to a street where little kids usually play rugby. 
+
+The owner of the house comes home from a long trip, and finds his big window is now broken. 
+He immediately assumes the kids must have broken the window with the rugby ball, and is about to go yell at them, but then he realizes that there are missing items in his home; he was robbed. 
+
+Now, for the owner of the house, it is less likely that the window was broken by the kids,
+because the robbery is a good explanation for it, it "explains away" the other possible causes.

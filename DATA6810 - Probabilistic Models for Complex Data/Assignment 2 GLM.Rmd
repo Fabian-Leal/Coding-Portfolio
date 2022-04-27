@@ -1,0 +1,205 @@
+
+
+```{r}
+
+library(tidyverse)
+library(mvtnorm)
+
+
+```
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 GLM - Part 1 ---------------------------
+# ------------------------------------------------------------------------------
+```{r}
+
+
+
+data = read.csv("D:/Desktop/PhD/DATA6810 - Probabilistic Models for Complex Data/Assignment 2/woodlark.csv") %>%
+  as_tibble() %>% 
+  select(., c(time.order,Y08))
+
+
+n <- length(data$time.order)
+
+X <- matrix(c(rep(1, n), data$time.order, data$time.order^2), ncol = 3)
+
+x <- data$time.order
+
+y <- data$Y08
+
+data_tbl <- tibble(x = x, y = y)
+
+
+poisson_glm_fit <- glm(
+  formula = y ~ X[,1] + X[,2] + X[,3],
+  family = poisson(link = "log"),
+  data.frame(y = y, x = x)
+)
+
+beta_hat <- matrix(summary(poisson_glm_fit)$coefficients[ , 1])
+
+V_hat <- summary(poisson_glm_fit)$cov.unscaled
+
+print(beta_hat)
+print(V_hat)
+
+```
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 GLM - Part 2 ---------------------------
+# ------------------------------------------------------------------------------
+```{r}
+log_posterior <- function(beta, X, Y, sigma_beta){
+  
+  beta <- as.matrix(beta)
+  
+  lambda <- exp(X %*% beta)
+  
+  sum(X %*% beta * Y - exp(X %*% beta))  - 
+    0.5 * t(beta) %*% solve(sigma_beta) %*% beta
+  
+}
+
+Y <- matrix(y)
+
+n_mcmc <- 2000
+
+beta_sample <- array(NA, dim = c(3, 1, n_mcmc))
+accept_sample <- array(NA, dim = c(n_mcmc))
+
+beta_sample[ , , 1] <- beta_hat
+accept_sample[1] <- 1
+
+for(i in 2:n_mcmc){
+  
+  cat(sprintf("\rIteration %i/%i", i, n_mcmc))
+  
+  beta_proposed <- c(rmvnorm(1, beta_hat, V_hat))
+  
+  lp_curr <- log_posterior(beta_sample[ , , i-1], X, Y, V_hat)
+  lp_prop <- log_posterior(beta_proposed, X, Y, V_hat)
+  
+  q_curr <- dmvnorm(beta_sample[ , , i-1], beta_hat, V_hat, log = TRUE)
+  q_prop <- dmvnorm(beta_proposed, beta_hat, V_hat, log = TRUE)
+  
+  alpha <- min(1, exp(lp_prop - lp_curr + q_curr - q_prop))
+  
+  u <- runif(1, 0, 1)
+  
+  if(alpha > u){
+    beta_sample[ , , i] <- beta_proposed
+    accept_sample[i] <- 1
+  } else {
+    beta_sample[ , , i] <- beta_sample[ , , i-1]
+    accept_sample[i] <- 0
+  }
+  
+}
+
+length(which(accept_sample == 1))/n_mcmc
+
+```
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 GLM - Part 3 ---------------------------
+# ------------------------------------------------------------------------------
+
+
+#------------------- Part 3 a) -----------------------------------------------------
+```{r}
+n_pred <- 71
+
+X_pred <- cbind(
+  rep(1, n_pred),
+  seq(1, 71, length = n_pred),
+  seq(1,71, length = n_pred)^2
+)
+
+lambda_sample <- array(NA, dim = c(n_pred, n_mcmc))
+y_sample <- array(NA, dim = c(n_pred, n_mcmc))
+
+for (i in 1:n_mcmc){
+  
+  lambda_sample[ , i] <- exp(X_pred %*% beta_sample[ , , i])
+  
+  for (j in 1:n_pred){
+    y_sample[j,i] <- rpois(1, lambda_sample[j, i])
+  }
+  
+}
+
+
+lambda_pred <- tibble(
+  x = seq(0, 71, length = n_pred),
+  lower = apply(lambda_sample, 1, quantile, 0.05),
+  mean = apply(lambda_sample, 1, mean),
+  upper = apply(lambda_sample, 1, quantile, 0.95)
+)
+
+y_pred <- tibble(
+  x = seq(0, 71, length = n_pred),
+  lower = apply(y_sample, 1, quantile, 0.05),
+  mean = apply(y_sample, 1, mean),
+  upper = apply(y_sample, 1, quantile, 0.95)
+)
+
+
+ggplot(lambda_pred, aes(x = x)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
+  geom_line(aes(y = mean)) +
+  geom_point(data = data_tbl, aes(x = x, y = y)) +
+  geom_ribbon(
+    data = y_pred, 
+    aes(ymin = lower, ymax = upper), alpha = 0.3) +
+  theme_bw()
+```
+
+
+#------------------- Part 3 b) -----------------------------------------------------
+
+Find the corresponding day of the max of each iteration 
+```{r}
+
+max_days = apply(y_sample, 2, which.max)
+
+ggplot(tibble(max_sight_day = max_days), aes(max_days)) + 
+  geom_histogram(aes(y=..density..), bins= 30) + 
+  geom_density(col="yellow")
+```
+
+
+
+#------------------- Part 3 c) -----------------------------------------------------
+The max day has the shape of a normal distribution
+```{r}
+mu = mean(tail(max_days, -2))
+std = sd(tail(max_days, -2))
+
+print(1-pnorm(40,mu,std))
+```
+
+
+# ------------------------------------------------------------------------------
+# ------------------------ Assignment 2 GLM - Part 4 ---------------------------
+# ------------------------------------------------------------------------------
+
+
+A Poisson distribution might not be the best option to model this data.
+
+Poisson distributions are good for modeling counts of values. In this problem, we are attemping to model
+the number of migrating woodlarks, which is exactly that, a discrete count of values.
+
+But we also have to consider that we have another option: a negative binomial. 
+Poisson distributions fit better than a negative binomial when the dataset variance is roughly equal
+to the mean. When the variance is greater than the mean, a negative binomial typically fits better.
+```{r}
+print(mean(data$Y08))
+print(var(data$Y08))
+```
+As we can see, in this case the variance is considerably greater than the mean, which means that a 
+negative binomial could have been able to fit the data better.
+
+We can also see that Poisson is not a good fit for this dataset in part 3 a): a big proportion of the points 
+are outside of the 95% confidence interval. 
+
